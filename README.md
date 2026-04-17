@@ -1,146 +1,147 @@
 # Mapadrinamiento UTFSM TEL
 
-Sistema de emparejamiento entre mechones y padrinos para maximizar afinidad global usando optimización combinatoria.
+Script para emparejar mechones con mapadrinos maximizando afinidad global.
 
-## Objetivo
+## Quick Start
 
-Dado un conjunto de mechones $M$ y padrinos $P$, se busca una asignación uno-a-uno que maximice la afinidad total, evitando decisiones locales que perjudiquen el resultado global.
+### 1) Clonar repositorio
 
----
+```bash
+git clone https://github.com/michifeli/mapadrinamiento.git
+cd mapadrinamiento
+```
 
-## Arquitectura (estándar `src/`)
+### 2) Crear entorno e instalar dependencias
 
-- [main.py](main.py): punto de entrada y orquestación.
-- [src/config.py](src/config.py): configuración por entorno.
-- [src/catalogs.py](src/catalogs.py): categorías oficiales + aliases.
-- [src/text_normalization.py](src/text_normalization.py): normalización de texto.
-- [src/semantic_mapper.py](src/semantic_mapper.py): mapeo local determinístico + IA controlada.
-- [src/data_pipeline.py](src/data_pipeline.py): lectura/preprocesamiento del Excel.
-- [src/scoring.py](src/scoring.py): puntaje y guardrails.
-- [src/matching.py](src/matching.py): algoritmo Húngaro.
-- [tests/test_main.py](tests/test_main.py): pruebas unitarias.
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
----
+### 3) Preparar datos
 
-## Flujo del programa
+- Deja el Excel de respuestas dentro de la carpeta `data/`.
+- El script lee el primer archivo que coincida con `data/*.xlsx`.
 
-1. **Carga de datos** desde `data/*.xlsx`.
-2. **Unificación de columnas** (mechón/padrino tienen headers levemente distintos).
-3. **Saneamiento semántico** de respuestas abiertas:
-   - primero reglas locales determinísticas,
-   - luego IA _solo si aporta_ (según configuración).
-4. **Construcción de matriz de afinidad** mechón × padrino.
-5. **Optimización global** con algoritmo Húngaro.
-6. **Exportación**:
-   - `match.csv`
-   - `reporte_ia.csv`
+### 4) Configurar `.env` (opcional, para apoyo IA)
 
----
+Si quieres usar IA en casos ambiguos, crea un archivo `.env` en la raíz con:
 
-## Matemática del score
+```env
+USE_AI=1
+API_KEY=tu_token
+HF_MODEL=meta-llama/Llama-3.1-8B-Instruct
+AI_ALLOWED_CATEGORIES=Pref
+AI_MAX_CALLS=12
+AI_MIN_CONFIDENCE_TO_SKIP=0.85
+```
 
-### 1) Similitud por categoría
+Si no configuras IA, el sistema funciona 100% local (determinístico).
 
-Para cada categoría $c$ y para una pareja $(m,p)$:
-
-$$
-S_m^c = \text{set de respuestas normalizadas de } m
-$$
-
-$$
-S_p^c = \text{set de respuestas normalizadas de } p
-$$
-
-Similitud de Jaccard:
-
-$$
-\text{sim}_c(m,p)=\frac{|S_m^c \cap S_p^c|}{|S_m^c \cup S_p^c|}
-$$
-
-Con pesos jerárquicos $w_c$:
-
-$$
-\text{raw}(m,p)=\sum_c w_c\,\text{sim}_c(m,p)
-$$
-
-### 2) Ajustes de robustez
-
-- **Bonus por cobertura** (coincidir en varias categorías):
-
-$$
-\text{bonus}=0.15\cdot \#\{c:\text{sim}_c>0\}
-$$
-
-- **Penalización de cola** para scores muy bajos:
-
-$$
-\text{gap}=\max(0,\text{SCORE\_FLOOR}-\text{raw})
-$$
-
-$$
-\text{penalidad}=\text{LOW\_SCORE\_PENALTY\_FACTOR}\cdot\frac{\text{gap}^2}{\text{SCORE\_FLOOR}}
-$$
-
-- **Multiplicador vital** por afinidad en `Pref`/`Hobby`:
-  - 1.00 si ambas coinciden,
-  - 0.92 si coincide solo una,
-  - 0.80 si no coincide ninguna.
-
-Score efectivo:
-
-$$
-\text{effective}=\max\left(0,\left(\text{raw}+\text{bonus}-\text{penalidad}\right)\cdot \text{vital\_multiplier}\right)
-$$
-
-### 3) Optimización global
-
-Se resuelve:
-
-$$
-\max_{\pi}\sum_i \text{effective}(m_i,p_{\pi(i)})
-$$
-
-donde $\pi$ es una permutación uno-a-uno entre mechones y padrinos.
-
-Como `linear_sum_assignment` minimiza costo, se usa:
-
-$$
-\text{cost}_{ij}=-\text{effective}(m_i,p_j)
-$$
-
----
-
-## Modo IA (controlado)
-
-Parámetros en `.env`:
-
-- `USE_AI=1` activa IA.
-- `AI_ALLOWED_CATEGORIES=Pref` limita categorías donde IA puede intervenir.
-- `AI_MAX_CALLS=12` presupuesto máximo de llamadas.
-- `AI_MIN_CONFIDENCE_TO_SKIP=0.85` si local supera eso, no llama IA.
-
-Si hay error HTTP `401/402/403/429`, el sistema desactiva IA en esa corrida y sigue local.
-
----
-
-## Ejecutar
+### 5) Ejecutar matching
 
 ```bash
 python main.py
 ```
 
-## Ejecutar tests
+Se generan:
+
+- `match.csv`: resultado final de emparejamientos.
+- `reporte_ia.csv`: trazabilidad del saneamiento de respuestas.
+
+### 6) Ejecutar tests
 
 ```bash
 python -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
----
+## Estructura del proyecto
 
-## Buenas prácticas implementadas
+- [main.py](main.py): orquesta todo el flujo.
+- [src/config.py](src/config.py): lee configuración desde entorno.
+- [src/catalogs.py](src/catalogs.py): opciones oficiales y aliases.
+- [src/text_normalization.py](src/text_normalization.py): limpieza de texto.
+- [src/semantic_mapper.py](src/semantic_mapper.py): mapeo local + IA opcional.
+- [src/data_pipeline.py](src/data_pipeline.py): lectura y normalización del Excel.
+- [src/scoring.py](src/scoring.py): cálculo de puntajes.
+- [src/matching.py](src/matching.py): asignación uno-a-uno (Hungarian).
+- [tests/test_main.py](tests/test_main.py): pruebas básicas.
 
-- Separación por responsabilidades (SRP).
-- Configuración desacoplada por entorno.
-- Fallback seguro: el pipeline no se cae por problemas externos de IA.
-- Registro auditable de saneamiento.
-- Tests unitarios para reglas críticas.
+## Matemática (explicada simple)
+
+### Problema
+
+Queremos asignar cada mechón a un mapadrino maximizando el puntaje total de afinidad.
+
+### 1) Similitud por categoría
+
+Para una categoría $c$ y una pareja $(m,p)$:
+
+- $A_c(m)$: respuestas normalizadas de $m$ en la categoría $c$.
+- $A_c(p)$: respuestas normalizadas de $p$ en la categoría $c$.
+
+Se usa Jaccard:
+
+$$
+sim_c(m,p)=\frac{|A_c(m)\cap A_c(p)|}{|A_c(m)\cup A_c(p)|}
+$$
+
+Luego se pondera por importancia de categoría ($w_c$):
+
+$$
+raw(m,p)=\sum_c w_c\cdot sim_c(m,p)
+$$
+
+### 2) Ajustes del score
+
+Se agregan 3 ajustes para que el score sea más realista:
+
+1. **Bonus de cobertura** (si coinciden en más categorías):
+
+$$
+bonus=0.15\cdot N_{match}
+$$
+
+donde $N_{match}$ es la cantidad de categorías con similitud mayor a 0.
+
+2. **Penalización de cola** (evita aceptar pares demasiado débiles):
+
+$$
+gap=\max(0, FLOOR-raw)
+$$
+
+$$
+penalidad=K\cdot\frac{gap^2}{FLOOR}
+$$
+
+En el código: $FLOOR = 8.0$ y $K = 0.55$.
+
+3. **Multiplicador vital** según afinidad en `Pref` y `Hobby`:
+
+- $1.00$ si coinciden ambas,
+- $0.92$ si coincide solo una,
+- $0.80$ si no coincide ninguna.
+
+Score final:
+
+$$
+effective(m,p)=\max\left(0,(raw+bonus-penalidad)\cdot mult\right)
+$$
+
+### 3) Optimización global
+
+No se elige el mejor padrino de cada mechón por separado.
+Se optimiza el conjunto completo:
+
+$$
+\max_{\pi}\sum_i effective(m_i,p_{\pi(i)})
+$$
+
+donde $\pi$ es una asignación uno-a-uno.
+
+Como el algoritmo húngaro resuelve minimización, se usa:
+
+$$
+cost_{ij}=-effective(m_i,p_j)
+$$
