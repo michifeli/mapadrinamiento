@@ -77,7 +77,7 @@ def _build_unified_row(row, role_label: str, suffix: str, name_col: str, email_c
 
 
 def preprocess_data(df: pd.DataFrame, mapper_state: dict):
-    """Prepara datos para matching y genera trazabilidad de normalización."""
+    """Prepara datos para matching."""
     unified_data = []
 
     # Construcción del dataframe unificado con columnas homogéneas.
@@ -92,8 +92,6 @@ def preprocess_data(df: pd.DataFrame, mapper_state: dict):
         )
 
     df_unified = pd.DataFrame(unified_data).replace("nan", "")
-    ai_log = []
-
     mode_label = "determinístico"
     config = mapper_state["config"]
     if config["use_ai"] and config["api_key"]:
@@ -111,7 +109,7 @@ def preprocess_data(df: pd.DataFrame, mapper_state: dict):
             if not res or res == "":
                 continue
 
-            clean_res, razon, metodo, conf = normalize_with_reasoning(
+            clean_res, _, _, _ = normalize_with_reasoning(
                 mapper_state,
                 res,
                 valid_opts,
@@ -119,25 +117,7 @@ def preprocess_data(df: pd.DataFrame, mapper_state: dict):
             )
             map_dict[res] = clean_res
 
-            if str(res).strip() != str(clean_res).strip() or metodo != "local":
-                ai_log.append(
-                    {
-                        "Columna": col,
-                        "Original": res,
-                        "Saneado": clean_res,
-                        "Metodo": metodo,
-                        "Confianza": round(conf, 2),
-                        "Razonamiento": razon,
-                    }
-                )
-
         df_unified[col] = df_unified[col].map(map_dict).fillna(df_unified[col])
-
-    pd.DataFrame(ai_log).to_csv(
-        "reporte_ia.csv",
-        index=False,
-        encoding="utf-8-sig",
-    )
 
     # Separación final para algoritmo de matching.
     mechones = df_unified[df_unified["Role"] == "Mechón"].reset_index(drop=True)

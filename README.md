@@ -47,8 +47,8 @@ python main.py
 
 Se generan:
 
-- `match.csv`: resultado final de emparejamientos.
-- `reporte_ia.csv`: trazabilidad del saneamiento de respuestas.
+- `match_explained.csv`: resultado completo con scores, alertas y sugerencias.
+- `match_simplecsv`: versión resumida con mechón, padrino y sugerencias.
 
 ### 6) Ejecutar tests
 
@@ -81,8 +81,8 @@ mapadrinamiento/
 ├── tests/
 │   └── test_main.py             -> Pruebas unitarias base.
 │
-├── match.csv                    -> Salida final de emparejamientos (se genera al correr).
-└── reporte_ia.csv               -> Log de saneamiento/mapeo (se genera al correr).
+├── match_explained.csv          -> Salida final completa (se genera al correr).
+└── match_simplecsv              -> Salida resumida (se genera al correr).
 ```
 
 ## Matemática

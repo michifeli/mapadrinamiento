@@ -33,6 +33,19 @@ def print_results(resultados) -> None:
         print("-" * 70)
 
 
+def build_simple_match(resultados):
+    """Arma una vista simple para uso rápido."""
+    cols = ["Mechon", "Padrino", "Sugerencia_Padrino", "Sugerencia2_Padrino"]
+    simple = resultados[cols].copy()
+    simple = simple.rename(
+        columns={
+            "Sugerencia_Padrino": "Padrino_Sugerencia",
+            "Sugerencia2_Padrino": "Padrino2_Sugerencia",
+        }
+    )
+    return simple
+
+
 def run_pipeline() -> None:
     """Ejecuta el flujo completo del script."""
     print("Paso 1/4: leyendo data...")
@@ -47,13 +60,14 @@ def run_pipeline() -> None:
     resultados = match_algorithm(mechones, padrinos)
 
     print("Paso 4/4: guardando resultados...")
-    resultados.to_csv("match.csv", index=False, encoding="utf-8-sig")
+    resultados.to_csv("match_explained.csv", index=False, encoding="utf-8-sig")
+    build_simple_match(resultados).to_csv("match_simple.csv", index=False, encoding="utf-8-sig")
 
     print_results(resultados)
 
     print("\nListo. Archivos generados:")
-    print("- match.csv")
-    print("- reporte_ia.csv")
+    print("- match_explained.csv")
+    print("- match_simple.csv")
 
 if __name__ == "__main__":
     run_pipeline()
